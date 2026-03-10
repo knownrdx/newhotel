@@ -1,0 +1,34 @@
+from datetime import datetime, timedelta, timezone
+from jose import jwt
+from passlib.context import CryptContext
+from cryptography.fernet import Fernet
+from app.core.config import settings
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+def hash_password(password: str) -> str:
+    return pwd_context.hash(password)
+
+
+def verify_password(password: str, hashed: str) -> bool:
+    return pwd_context.verify(password, hashed)
+
+
+def create_access_token(subject: str) -> str:
+    expire = datetime.now(timezone.utc) + timedelta(minutes=settings.access_token_expire_minutes)
+    payload = {"sub": subject, "exp": expire}
+    return jwt.encode(payload, settings.secret_key, algorithm="HS256")
+
+
+def _fernet() -> Fernet:
+    raw = settings.encryption_key.encode("utf-8")[:32].ljust(32, b"0")
+    return Fernet(Fernet.generate_key()) if len(raw) != 32 else Fernet(__import__("base64").urlsafe_b64encode(raw))
+
+
+def encrypt_secret(value: str) -> str:
+    return _fernet().encrypt(value.encode()).decode()
+
+
+def decrypt_secret(value: str) -> str:
+    return _fernet().decrypt(value.encode()).decode()
