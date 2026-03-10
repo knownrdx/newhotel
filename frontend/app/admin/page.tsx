@@ -8,7 +8,7 @@ export default function AdminPage() {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) return;
-    fetch(`${process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000'}/api/dashboard/summary`, { headers: { Authorization: `Bearer ${token}` } })
+    fetch(`${process.env.NEXT_PUBLIC_API_BASE || '/api'}/api/dashboard/summary`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
       .then(setSummary)
       .catch(() => undefined);

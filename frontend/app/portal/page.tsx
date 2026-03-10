@@ -12,7 +12,7 @@ export default function PortalPage() {
   const [message, setMessage] = useState('');
 
   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000'}/api/hotels/${hotelSlug}/branding`).then(r => r.json()).then(setBranding).catch(() => undefined);
+    fetch(`${process.env.NEXT_PUBLIC_API_BASE || '/api'}/api/hotels/${hotelSlug}/branding`).then(r => r.json()).then(setBranding).catch(() => undefined);
   }, [hotelSlug]);
 
   async function submit(e: React.FormEvent) {
@@ -20,7 +20,7 @@ export default function PortalPage() {
     const body = mode === 'room'
       ? { hotel_slug: hotelSlug, room_number: roomNumber, last_name: lastName }
       : { hotel_slug: hotelSlug, voucher_code: voucherCode };
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000'}/api/portal/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE || '/api'}/api/portal/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     setMessage(res.ok ? 'Connected. Redirect to MikroTik login success URL here.' : 'Login failed.');
   }
 

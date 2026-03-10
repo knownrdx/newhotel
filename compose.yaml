@@ -1,100 +1,86 @@
-name: hotel-wifi-saas
-
 services:
-  db:
-    image: postgres:16
-    environment:
-      POSTGRES_DB: hotelwifi
-      POSTGRES_USER: hotelwifi
-      POSTGRES_PASSWORD: hotelwifi
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U hotelwifi -d hotelwifi"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-    ports:
-      - "5432:5432"
+  gateway:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      - frontend
+      - backend
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-  redis:
-    image: redis:7
-    command: ["redis-server", "--appendonly", "yes"]
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-
-  backend:
-    build:
-      context: ./backend
-    environment:
-      POSTGRES_DSN: postgresql+psycopg://hotelwifi:hotelwifi@db:5432/hotelwifi
-      REDIS_URL: redis://redis:6379/0
-      SECRET_KEY: replace-me-in-production
-      ENCRYPTION_KEY: 01234567890123456789012345678901
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health').read()"]
-      interval: 10s
-      timeout: 5s
-      retries: 12
-    ports:
-      - "8000:8000"
-
-  worker:
-    build:
-      context: ./backend
-    command: ["python", "-m", "app.workers.poller"]
-    environment:
-      POSTGRES_DSN: postgresql+psycopg://hotelwifi:hotelwifi@db:5432/hotelwifi
-      REDIS_URL: redis://redis:6379/0
-      SECRET_KEY: replace-me-in-production
-      ENCRYPTION_KEY: 01234567890123456789012345678901
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      backend:
-        condition: service_healthy
-
-  seed:
-    build:
-      context: ./backend
-    command: ["python", "-m", "scripts.seed_demo"]
-    environment:
-      POSTGRES_DSN: postgresql+psycopg://hotelwifi:hotelwifi@db:5432/hotelwifi
-      REDIS_URL: redis://redis:6379/0
-      SECRET_KEY: replace-me-in-production
-      ENCRYPTION_KEY: 01234567890123456789012345678901
-    depends_on:
-      db:
-        condition: service_healthy
-      backend:
-        condition: service_healthy
-    restart: "no"
+      - ./deploy/nginx.conf:/etc/nginx/nginx.conf:ro
 
   frontend:
     build:
       context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
     environment:
-      NEXT_PUBLIC_API_BASE: http://localhost:8000
+      NEXT_PUBLIC_API_BASE: /api
+      NEXT_PUBLIC_APP_URL: https://wifi.example.com
     depends_on:
-      backend:
-        condition: service_healthy
-    ports:
-      - "3000:3000"
+      - backend
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      POSTGRES_DSN: postgresql+psycopg://hotelwifi:${POSTGRES_PASSWORD}@db:5432/hotelwifi
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: ${SECRET_KEY}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+    depends_on:
+      - db
+      - redis
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: ["python", "-m", "app.workers.poller"]
+    environment:
+      POSTGRES_DSN: postgresql+psycopg://hotelwifi:${POSTGRES_PASSWORD}@db:5432/hotelwifi
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: ${SECRET_KEY}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+    depends_on:
+      - db
+      - redis
+      - backend
+
+  seed:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: ["python", "-m", "scripts.seed_demo"]
+    environment:
+      POSTGRES_DSN: postgresql+psycopg://hotelwifi:${POSTGRES_PASSWORD}@db:5432/hotelwifi
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: ${SECRET_KEY}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+    depends_on:
+      - db
+      - backend
+    restart: "no"
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: hotelwifi
+      POSTGRES_USER: hotelwifi
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
 
 volumes:
-  postgres_data:
+  db_data:
   redis_data:

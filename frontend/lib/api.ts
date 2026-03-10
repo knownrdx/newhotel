@@ -1,5 +1,5 @@
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const base = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000';
+  const base = process.env.NEXT_PUBLIC_API_BASE || '/api';
   const res = await fetch(`${base}${path}`, {
     ...init,
     headers: {
